@@ -2,6 +2,7 @@ package main
 
 import (
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,9 @@ import (
 
 	"github.com/messiah-of-ur/murker/game"
 )
+
+const MurkerPort = "MURKER_PORT"
+const DefaultPort = "8080"
 
 func main() {
 	rand.Seed(time.Now().Unix())
@@ -19,5 +23,15 @@ func main() {
 
 	apiV1.RegisterHandlers(router, runner, registry)
 
-	router.Run()
+	port := getPort()
+	router.Run(port)
+}
+
+func getPort() string {
+	port := os.Getenv(MurkerPort)
+	if port == "" {
+		port = DefaultPort
+	}
+
+	return ":" + port
 }
