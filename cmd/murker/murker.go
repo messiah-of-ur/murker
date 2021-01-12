@@ -15,8 +15,9 @@ func main() {
 
 	router := gin.Default()
 	runner := game.NewGameRunner()
+	registry := apiV1.RoomRegistry{}
 
-	apiV1.RegisterHandlers(router, runner)
+	apiV1.RegisterHandlers(router, runner, registry)
 
 	router.Run()
 }

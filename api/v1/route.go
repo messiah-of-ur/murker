@@ -5,7 +5,8 @@ import (
 	"github.com/messiah-of-ur/murker/game"
 )
 
-func RegisterHandlers(router *gin.Engine, runner game.GameRunner) {
+func RegisterHandlers(router *gin.Engine, runner game.GameRunner, registry RoomRegistry) {
 	router.GET("/state", stateHandler(runner))
-	router.POST("/game", gameGenerationHandler(runner))
+	router.POST("/game", gameGenerationHandler(runner, registry))
+	router.GET("/room", registry.roomHandler())
 }

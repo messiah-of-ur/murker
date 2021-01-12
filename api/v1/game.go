@@ -22,7 +22,7 @@ type PlayerAuth struct {
 	Key string `json:"key" binding:"required"`
 }
 
-func gameGenerationHandler(runner game.GameRunner) func(*gin.Context) {
+func gameGenerationHandler(runner game.GameRunner, roomRegistry RoomRegistry) func(*gin.Context) {
 	return func(c *gin.Context) {
 		var auth PlayerAuth
 		if err := c.ShouldBindJSON(&auth); err != nil {
@@ -30,10 +30,15 @@ func gameGenerationHandler(runner game.GameRunner) func(*gin.Context) {
 			return
 		}
 
-		gameID, _, err := runner.AddGame(auth.Key) // use the auth here
+		gameID, controls, err := runner.AddGame(auth.Key)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("Error adding game: %s", err.Error())})
 		}
+
+		mur := runner[gameID]
+
+		room := NewRoom(mur, controls)
+		roomRegistry[gameID] = room
 
 		c.JSON(http.StatusOK, gin.H{"gameID": gameID})
 	}

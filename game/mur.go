@@ -14,23 +14,25 @@ const (
 )
 
 type Game struct {
-	plrPawns [2][PawnsPerPlayer]int
-	roll     int
-	turnPlr  int
+	PlrPawns [2][PawnsPerPlayer]int `json:"playerPawns" binding:"required"`
+	Roll     int                    `json:"Roll" binding:"required"`
+	TurnPlr  int                    `json:"turn" binding:"required"`
 	key      string
 	pawns    []<-chan int
 	turns    []chan<- struct{}
+	moveDone chan<- struct{}
 	end      chan<- struct{}
 }
 
-func NewGame(key string, pawns []<-chan int, turns []chan<- struct{}, end chan<- struct{}) *Game {
+func NewGame(key string, pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}) *Game {
 	return &Game{
-		plrPawns: [2][PawnsPerPlayer]int{},
-		roll:     0,
-		turnPlr:  0,
+		PlrPawns: [2][PawnsPerPlayer]int{},
+		Roll:     0,
+		TurnPlr:  0,
 		key:      key,
 		pawns:    pawns,
 		turns:    turns,
+		moveDone: moveDone,
 		end:      end,
 	}
 }
@@ -48,49 +50,51 @@ func (g *Game) Run() {
 
 	rosette := false
 	for {
-		fmt.Println(g.plrPawns)
+		fmt.Println(g.PlrPawns)
 		if !rosette {
-			g.rollDice()
+			g.RollDice()
 		} else {
 			rosette = false
 		}
 
-		g.turns[g.turnPlr] <- struct{}{}
-		pawnID := <-g.pawns[g.turnPlr]
-		newField := g.move(g.turnPlr, pawnID)
+		g.turns[g.TurnPlr] <- struct{}{}
+		pawnID := <-g.pawns[g.TurnPlr]
+		newField := g.move(g.TurnPlr, pawnID)
 
 		if newField == RosetteField {
 			rosette = true
 			continue
 		}
-		g.removePawns(opositePlayer(g.turnPlr), newField)
+		g.removePawns(opositePlayer(g.TurnPlr), newField)
 
-		if g.isGameFinished(g.turnPlr) {
+		if g.isGameFinished(g.TurnPlr) {
 			break
 		}
 
-		g.turnPlr = opositePlayer(g.turnPlr)
+		g.TurnPlr = opositePlayer(g.TurnPlr)
+
+		g.moveDone <- struct{}{}
 	}
 }
 
-func (g *Game) rollDice() {
+func (g *Game) RollDice() {
 	res := 0
 
 	for i := 0; i < NumDice; i++ {
 		res += rand.Intn(MaxDiceScore)
 	}
 
-	g.roll = res
+	g.Roll = res
 }
 
 func (g *Game) move(plrID int, pawnID int) int {
-	pos := g.plrPawns[plrID][pawnID]
+	pos := g.PlrPawns[plrID][pawnID]
 	pos = abs(pos)
 
-	pos += g.roll
+	pos += g.Roll
 	pos = changeSideOfField(plrID, pos)
 
-	g.plrPawns[plrID][pawnID] = pos
+	g.PlrPawns[plrID][pawnID] = pos
 	return pos
 }
 
@@ -118,9 +122,9 @@ func (g *Game) removePawns(plrID int, fieldId int) {
 		return
 	}
 
-	for i, v := range g.plrPawns[plrID] {
+	for i, v := range g.PlrPawns[plrID] {
 		if v == fieldId {
-			g.plrPawns[plrID][i] = 0
+			g.PlrPawns[plrID][i] = 0
 			break
 		}
 	}
@@ -132,7 +136,7 @@ func (g *Game) isGameFinished(plrID int) bool {
 	res := 0
 
 	for i := 0; i < PawnsPerPlayer; i++ {
-		if g.plrPawns[plrID][i] >= EscapedField {
+		if g.PlrPawns[plrID][i] >= EscapedField {
 			res++
 		}
 	}

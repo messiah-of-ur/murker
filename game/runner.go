@@ -7,21 +7,24 @@ import (
 )
 
 type GameController struct {
-	End   <-chan struct{}
-	Turns <-chan struct{}
-	pawns chan<- int
+	End      <-chan struct{}
+	Turns    <-chan struct{}
+	moveDone <-chan struct{}
+	pawns    chan<- int
 }
 
-func newGameControls(end <-chan struct{}, turns <-chan struct{}, pawns chan<- int) *GameController {
+func newGameControls(end, turns, moveDone <-chan struct{}, pawns chan<- int) *GameController {
 	return &GameController{
-		End:   end,
-		Turns: turns,
-		pawns: pawns,
+		End:      end,
+		Turns:    turns,
+		moveDone: moveDone,
+		pawns:    pawns,
 	}
 }
 
 func (r *GameController) Move(pawnID int) {
 	r.pawns <- pawnID
+	<-r.moveDone
 }
 
 func (r *GameController) Close() {
@@ -41,11 +44,15 @@ func (r GameRunner) AddGame(key string) (gameID string, controls [2]*GameControl
 
 	pawns := []chan int{make(chan int), make(chan int)}
 	turns := []chan struct{}{make(chan struct{}), make(chan struct{})}
+	moveDone := make(chan struct{})
 	end := make(chan struct{})
 
-	controls = [2]*GameController{newGameControls(end, turns[0], pawns[0]), newGameControls(end, turns[1], pawns[1])}
+	controls = [2]*GameController{
+		newGameControls(end, turns[0], moveDone, pawns[0]),
+		newGameControls(end, turns[1], moveDone, pawns[1]),
+	}
 
-	r[gameID] = NewGame(key, []<-chan int{pawns[0], pawns[1]}, []chan<- struct{}{turns[0], turns[1]}, end)
+	r[gameID] = NewGame(key, []<-chan int{pawns[0], pawns[1]}, []chan<- struct{}{turns[0], turns[1]}, moveDone, end)
 
 	go r.runGame(r[gameID], gameID)
 
