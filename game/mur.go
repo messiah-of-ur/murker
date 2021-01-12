@@ -14,26 +14,28 @@ const (
 )
 
 type Game struct {
-	PlrPawns [2][PawnsPerPlayer]int `json:"playerPawns" binding:"required"`
-	Roll     int                    `json:"Roll" binding:"required"`
-	TurnPlr  int                    `json:"turn" binding:"required"`
-	key      string
-	pawns    []<-chan int
-	turns    []chan<- struct{}
-	moveDone chan<- struct{}
-	end      chan<- struct{}
+	PlrPawns  [2][PawnsPerPlayer]int `json:"playerPawns" binding:"required"`
+	Roll      int                    `json:"Roll" binding:"required"`
+	TurnPlr   int                    `json:"turn" binding:"required"`
+	key       string
+	pawns     []<-chan int
+	turns     []chan<- struct{}
+	moveDone  chan<- struct{}
+	end       chan<- struct{}
+	interrupt []<-chan struct{}
 }
 
-func NewGame(key string, pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}) *Game {
+func NewGame(key string, pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}, interrupt []<-chan struct{}) *Game {
 	return &Game{
-		PlrPawns: [2][PawnsPerPlayer]int{},
-		Roll:     0,
-		TurnPlr:  0,
-		key:      key,
-		pawns:    pawns,
-		turns:    turns,
-		moveDone: moveDone,
-		end:      end,
+		PlrPawns:  [2][PawnsPerPlayer]int{},
+		Roll:      0,
+		TurnPlr:   0,
+		key:       key,
+		pawns:     pawns,
+		turns:     turns,
+		moveDone:  moveDone,
+		end:       end,
+		interrupt: interrupt,
 	}
 }
 
@@ -49,6 +51,8 @@ func (g *Game) Run() {
 	}()
 
 	rosette := false
+	var pawnID int
+
 	for {
 		fmt.Println(g.PlrPawns)
 		if !rosette {
@@ -58,20 +62,29 @@ func (g *Game) Run() {
 		}
 
 		g.turns[g.TurnPlr] <- struct{}{}
-		pawnID := <-g.pawns[g.TurnPlr]
+		opp := OpositePlayer(g.TurnPlr)
+
+		select {
+		case pawnID = <-g.pawns[g.TurnPlr]:
+		case <-g.interrupt[g.TurnPlr]:
+			break
+		case <-g.interrupt[opp]:
+			break
+		}
+
 		newField := g.move(g.TurnPlr, pawnID)
 
 		if newField == RosetteField {
 			rosette = true
 			continue
 		}
-		g.removePawns(opositePlayer(g.TurnPlr), newField)
+		g.removePawns(OpositePlayer(g.TurnPlr), newField)
 
 		if g.isGameFinished(g.TurnPlr) {
 			break
 		}
 
-		g.TurnPlr = opositePlayer(g.TurnPlr)
+		g.TurnPlr = OpositePlayer(g.TurnPlr)
 
 		g.moveDone <- struct{}{}
 	}
@@ -130,7 +143,7 @@ func (g *Game) removePawns(plrID int, fieldId int) {
 	}
 }
 
-func opositePlayer(plrID int) int { return 1 - plrID }
+func OpositePlayer(plrID int) int { return 1 - plrID }
 
 func (g *Game) isGameFinished(plrID int) bool {
 	res := 0

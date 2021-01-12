@@ -8,5 +8,5 @@ import (
 func RegisterHandlers(router *gin.Engine, runner game.GameRunner, registry RoomRegistry) {
 	router.GET("/state", stateHandler(runner))
 	router.POST("/game", gameGenerationHandler(runner, registry))
-	router.GET("/room", registry.roomHandler())
+	router.GET("/join/:game_id", registry.roomHandler())
 }
