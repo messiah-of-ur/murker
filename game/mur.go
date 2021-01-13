@@ -14,9 +14,9 @@ const (
 )
 
 type Game struct {
-	PlrPawns  [2][MaxPlayerPawns]int `json:"playerPawns" binding:"required"`
-	Roll      int                    `json:"Roll" binding:"required"`
-	TurnPlr   int                    `json:"turn" binding:"required"`
+	PlrPawns  [2][MaxPlayerPawns]int `json:"playerPawns"`
+	Roll      int                    `json:"roll"`
+	TurnPlr   int                    `json:"turn"`
 	pawns     []<-chan int
 	turns     []chan<- struct{}
 	moveDone  chan<- struct{}

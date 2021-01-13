@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -18,12 +19,14 @@ const (
 )
 
 type Room struct {
-	key       string
-	mur       *game.Game
-	controls  [NUM_PLAYERS]*game.GameController
-	sendState [NUM_PLAYERS]chan []byte
-	opponent  [NUM_PLAYERS]chan struct{}
-	joined    [NUM_PLAYERS]bool
+	key         string
+	mur         *game.Game
+	controls    [NUM_PLAYERS]*game.GameController
+	sendState   [NUM_PLAYERS]chan []byte
+	opponent    [NUM_PLAYERS]chan struct{}
+	joined      [NUM_PLAYERS]bool
+	interrupted [NUM_PLAYERS]bool
+	mu          sync.Mutex
 }
 
 type PlayerAction struct {
@@ -32,12 +35,13 @@ type PlayerAction struct {
 
 func NewRoom(key string, mur *game.Game, controls [NUM_PLAYERS]*game.GameController) *Room {
 	return &Room{
-		key:       key,
-		mur:       mur,
-		controls:  controls,
-		sendState: [NUM_PLAYERS]chan []byte{make(chan []byte), make(chan []byte)},
-		opponent:  [NUM_PLAYERS]chan struct{}{make(chan struct{}), make(chan struct{})},
-		joined:    [NUM_PLAYERS]bool{false, false},
+		key:         key,
+		mur:         mur,
+		controls:    controls,
+		sendState:   [NUM_PLAYERS]chan []byte{make(chan []byte), make(chan []byte)},
+		opponent:    [NUM_PLAYERS]chan struct{}{make(chan struct{}), make(chan struct{})},
+		joined:      [NUM_PLAYERS]bool{false, false},
+		interrupted: [NUM_PLAYERS]bool{false, false},
 	}
 }
 
@@ -129,7 +133,14 @@ func (r *Room) interruptWithError(ctx *gin.Context, plrID int, err error) {
 
 func (r *Room) interruptOpponent(plrID int) {
 	opp := game.OpositePlayer(plrID)
-	close(r.controls[opp].Interrupt)
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if !r.interrupted[opp] {
+		close(r.controls[opp].Interrupt)
+		r.interrupted[opp] = true
+	}
 }
 
 var upgrader = websocket.Upgrader{
