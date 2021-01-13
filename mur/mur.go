@@ -1,4 +1,4 @@
-package game
+package mur
 
 import (
 	"fmt"
@@ -21,10 +21,10 @@ type Game struct {
 	turns     []chan<- struct{}
 	moveDone  chan<- struct{}
 	end       chan<- struct{}
-	interrupt []<-chan struct{}
+	interrupt <-chan struct{}
 }
 
-func NewGame(pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}, interrupt []<-chan struct{}) *Game {
+func NewGame(pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}, interrupt <-chan struct{}) *Game {
 	return &Game{
 		PlrPawns:  [2][MaxPlayerPawns]int{},
 		Roll:      0,
@@ -60,14 +60,11 @@ func (g *Game) Run() {
 		}
 
 		g.turns[g.TurnPlr] <- struct{}{}
-		opp := OpositePlayer(g.TurnPlr)
 
 		select {
 		case pawnID = <-g.pawns[g.TurnPlr]:
-		case <-g.interrupt[g.TurnPlr]:
-			break
-		case <-g.interrupt[opp]:
-			break
+		case <-g.interrupt:
+			return
 		}
 
 		newField := g.move(g.TurnPlr, pawnID)

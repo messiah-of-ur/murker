@@ -4,10 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/messiah-of-ur/murker/game"
+	"github.com/messiah-of-ur/murker/mur"
 )
 
-func stateHandler(runner game.GameRunner) func(*gin.Context) {
+func stateHandler(runner mur.GameRunner) func(*gin.Context) {
 	return func(c *gin.Context) {
 		gamesCount := len(runner)
 

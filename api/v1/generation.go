@@ -5,14 +5,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/messiah-of-ur/murker/game"
+	"github.com/messiah-of-ur/murker/mur"
 )
 
 type PlayerAuth struct {
 	Key string `json:"key" binding:"required"`
 }
 
-func gameGenerationHandler(runner game.GameRunner, roomRegistry RoomRegistry) func(*gin.Context) {
+func gameGenerationHandler(runner mur.GameRunner, roomRegistry RoomRegistry) func(*gin.Context) {
 	return func(c *gin.Context) {
 		var auth PlayerAuth
 		if err := c.ShouldBindJSON(&auth); err != nil {
@@ -20,15 +20,13 @@ func gameGenerationHandler(runner game.GameRunner, roomRegistry RoomRegistry) fu
 			return
 		}
 
-		gameID, controls, err := runner.AddGame()
+		gameID, controls, interrupt, err := runner.AddGame()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("Error adding game: %s", err.Error())})
 		}
 
-		mur := runner[gameID]
-
-		room := NewRoom(auth.Key, mur, controls)
-		roomRegistry[gameID] = room
+		game := runner[gameID]
+		roomRegistry.addRoom(auth.Key, game, controls, interrupt, gameID)
 
 		c.JSON(http.StatusOK, gin.H{"gameID": gameID})
 	}

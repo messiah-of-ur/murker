@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	apiV1 "github.com/messiah-of-ur/murker/api/v1"
-	"github.com/messiah-of-ur/murker/game"
+	"github.com/messiah-of-ur/murker/mur"
 )
 
 const MurkerPort = "MURKER_PORT"
@@ -21,7 +21,7 @@ func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
 
-	runner := game.NewGameRunner()
+	runner := mur.NewGameRunner()
 	registry := apiV1.RoomRegistry{}
 
 	apiV1.RegisterHandlers(router, runner, registry)

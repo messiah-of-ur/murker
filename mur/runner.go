@@ -1,4 +1,4 @@
-package game
+package mur
 
 import (
 	"fmt"
@@ -7,20 +7,18 @@ import (
 )
 
 type GameController struct {
-	End       <-chan struct{}
-	Turns     <-chan struct{}
-	Interrupt chan struct{}
-	moveDone  <-chan struct{}
-	pawns     chan<- int
+	End      <-chan struct{}
+	Turns    <-chan struct{}
+	moveDone <-chan struct{}
+	pawns    chan<- int
 }
 
-func newGameControls(end, turns, moveDone <-chan struct{}, pawns chan<- int, interrupt chan struct{}) *GameController {
+func newGameControls(end, turns, moveDone <-chan struct{}, pawns chan<- int) *GameController {
 	return &GameController{
-		End:       end,
-		Turns:     turns,
-		Interrupt: interrupt,
-		moveDone:  moveDone,
-		pawns:     pawns,
+		End:      end,
+		Turns:    turns,
+		moveDone: moveDone,
+		pawns:    pawns,
 	}
 }
 
@@ -39,20 +37,20 @@ func NewGameRunner() GameRunner {
 	return GameRunner{}
 }
 
-func (r GameRunner) AddGame() (gameID string, controls [2]*GameController, err error) {
+func (r GameRunner) AddGame() (gameID string, controls [2]*GameController, interrupt chan struct{}, err error) {
 	if gameID, err = uniqGameID(); err != nil {
-		return "", controls, err
+		return "", controls, nil, err
 	}
 
 	pawns := []chan int{make(chan int), make(chan int)}
 	turns := []chan struct{}{make(chan struct{}), make(chan struct{})}
 	moveDone := make(chan struct{})
 	end := make(chan struct{})
-	interrupt := []chan struct{}{make(chan struct{}), make(chan struct{})}
+	interrupt = make(chan struct{})
 
 	controls = [2]*GameController{
-		newGameControls(end, turns[0], moveDone, pawns[0], interrupt[0]),
-		newGameControls(end, turns[1], moveDone, pawns[1], interrupt[0]),
+		newGameControls(end, turns[0], moveDone, pawns[0]),
+		newGameControls(end, turns[1], moveDone, pawns[1]),
 	}
 
 	r[gameID] = NewGame(
@@ -60,12 +58,12 @@ func (r GameRunner) AddGame() (gameID string, controls [2]*GameController, err e
 		[]chan<- struct{}{turns[0], turns[1]},
 		moveDone,
 		end,
-		[]<-chan struct{}{interrupt[0], interrupt[1]},
+		interrupt,
 	)
 
 	go r.runGame(r[gameID], gameID)
 
-	return gameID, controls, nil
+	return gameID, controls, interrupt, nil
 }
 
 func (r GameRunner) runGame(game *Game, gameID string) {
