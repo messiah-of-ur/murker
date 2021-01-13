@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	PawnsPerPlayer = 8
+	MaxPlayerPawns = 8
 	NumDice        = 4
 	MaxDiceScore   = 2
 	EscapedField   = 15
@@ -14,10 +14,9 @@ const (
 )
 
 type Game struct {
-	PlrPawns  [2][PawnsPerPlayer]int `json:"playerPawns" binding:"required"`
+	PlrPawns  [2][MaxPlayerPawns]int `json:"playerPawns" binding:"required"`
 	Roll      int                    `json:"Roll" binding:"required"`
 	TurnPlr   int                    `json:"turn" binding:"required"`
-	key       string
 	pawns     []<-chan int
 	turns     []chan<- struct{}
 	moveDone  chan<- struct{}
@@ -25,12 +24,11 @@ type Game struct {
 	interrupt []<-chan struct{}
 }
 
-func NewGame(key string, pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}, interrupt []<-chan struct{}) *Game {
+func NewGame(pawns []<-chan int, turns []chan<- struct{}, moveDone, end chan<- struct{}, interrupt []<-chan struct{}) *Game {
 	return &Game{
-		PlrPawns:  [2][PawnsPerPlayer]int{},
+		PlrPawns:  [2][MaxPlayerPawns]int{},
 		Roll:      0,
 		TurnPlr:   0,
-		key:       key,
 		pawns:     pawns,
 		turns:     turns,
 		moveDone:  moveDone,
@@ -148,11 +146,11 @@ func OpositePlayer(plrID int) int { return 1 - plrID }
 func (g *Game) isGameFinished(plrID int) bool {
 	res := 0
 
-	for i := 0; i < PawnsPerPlayer; i++ {
+	for i := 0; i < MaxPlayerPawns; i++ {
 		if g.PlrPawns[plrID][i] >= EscapedField {
 			res++
 		}
 	}
 
-	return (res == PawnsPerPlayer)
+	return (res == MaxPlayerPawns)
 }

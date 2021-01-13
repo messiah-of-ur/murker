@@ -39,7 +39,7 @@ func NewGameRunner() GameRunner {
 	return GameRunner{}
 }
 
-func (r GameRunner) AddGame(key string) (gameID string, controls [2]*GameController, err error) {
+func (r GameRunner) AddGame() (gameID string, controls [2]*GameController, err error) {
 	if gameID, err = uniqGameID(); err != nil {
 		return "", controls, err
 	}
@@ -56,7 +56,6 @@ func (r GameRunner) AddGame(key string) (gameID string, controls [2]*GameControl
 	}
 
 	r[gameID] = NewGame(
-		key,
 		[]<-chan int{pawns[0], pawns[1]},
 		[]chan<- struct{}{turns[0], turns[1]},
 		moveDone,

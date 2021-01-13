@@ -20,14 +20,14 @@ func gameGenerationHandler(runner game.GameRunner, roomRegistry RoomRegistry) fu
 			return
 		}
 
-		gameID, controls, err := runner.AddGame(auth.Key)
+		gameID, controls, err := runner.AddGame()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("Error adding game: %s", err.Error())})
 		}
 
 		mur := runner[gameID]
 
-		room := NewRoom(mur, controls)
+		room := NewRoom(auth.Key, mur, controls)
 		roomRegistry[gameID] = room
 
 		c.JSON(http.StatusOK, gin.H{"gameID": gameID})

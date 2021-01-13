@@ -18,6 +18,7 @@ const (
 )
 
 type Room struct {
+	key       string
 	mur       *game.Game
 	controls  [NUM_PLAYERS]*game.GameController
 	sendState [NUM_PLAYERS]chan []byte
@@ -29,8 +30,9 @@ type PlayerAction struct {
 	PawnID *int `json:"pawnID"`
 }
 
-func NewRoom(mur *game.Game, controls [NUM_PLAYERS]*game.GameController) *Room {
+func NewRoom(key string, mur *game.Game, controls [NUM_PLAYERS]*game.GameController) *Room {
 	return &Room{
+		key:       key,
 		mur:       mur,
 		controls:  controls,
 		sendState: [NUM_PLAYERS]chan []byte{make(chan []byte), make(chan []byte)},
@@ -78,6 +80,10 @@ func (r *Room) play(ctx *gin.Context, conn *websocket.Conn, plrID int) {
 			return
 		}
 	}
+}
+
+func (r *Room) isKeyAuthentic(key string) bool {
+	return r.key == key
 }
 
 func (r *Room) waitForOpponentToJoin(plrID int) {
@@ -165,6 +171,11 @@ func (r RoomRegistry) roomHandler() func(ctx *gin.Context) {
 
 		if room.joined[credentials.PlayerID] {
 			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join the game %s again", credentials.PlayerID, gameID))
+			return
+		}
+
+		if !room.isKeyAuthentic(credentials.Key) {
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join the game %s with invalid key", credentials.PlayerID, gameID))
 			return
 		}
 
