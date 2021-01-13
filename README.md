@@ -1,2 +1,3 @@
-# murker
-Acronym for MUR Worker.
+# :scream_cat: :feet: Mrrr mrrr...
+
+A stateful backend capable of hosting several Ur rooms.
