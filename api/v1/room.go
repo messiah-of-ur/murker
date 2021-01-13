@@ -21,7 +21,8 @@ type Room struct {
 	mur       *game.Game
 	controls  [NUM_PLAYERS]*game.GameController
 	sendState [NUM_PLAYERS]chan []byte
-	joined    [NUM_PLAYERS]chan struct{}
+	opponent  [NUM_PLAYERS]chan struct{}
+	joined    [NUM_PLAYERS]bool
 }
 
 type PlayerAction struct {
@@ -33,7 +34,8 @@ func NewRoom(mur *game.Game, controls [NUM_PLAYERS]*game.GameController) *Room {
 		mur:       mur,
 		controls:  controls,
 		sendState: [NUM_PLAYERS]chan []byte{make(chan []byte), make(chan []byte)},
-		joined:    [NUM_PLAYERS]chan struct{}{make(chan struct{}), make(chan struct{})},
+		opponent:  [NUM_PLAYERS]chan struct{}{make(chan struct{}), make(chan struct{})},
+		joined:    [NUM_PLAYERS]bool{false, false},
 	}
 }
 
@@ -79,8 +81,10 @@ func (r *Room) play(ctx *gin.Context, conn *websocket.Conn, plrID int) {
 }
 
 func (r *Room) waitForOpponentToJoin(plrID int) {
-	close(r.joined[plrID])
-	<-r.joined[1-plrID]
+	close(r.opponent[plrID])
+	r.joined[plrID] = true
+
+	<-r.opponent[1-plrID]
 }
 
 func (r *Room) runMessageSender(ctx *gin.Context, conn *websocket.Conn, plrID int) {
@@ -102,7 +106,7 @@ func (r *Room) runMessageSender(ctx *gin.Context, conn *websocket.Conn, plrID in
 func (r *Room) sendGameState() error {
 	gameState, err := json.Marshal(r.mur)
 	if err != nil {
-		return fmt.Errorf("Error marshaling game state: %s\n", err.Error())
+		return fmt.Errorf("Error marshaling game state: %s", err.Error())
 	}
 
 	r.sendState[PLR_1] <- gameState
@@ -140,18 +144,29 @@ func (r RoomRegistry) roomHandler() func(ctx *gin.Context) {
 		conn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
 
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("Error upgrading websocket: %s", err.Error())})
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Error upgrading websocket: %s", err.Error()))
 			return
 		}
 
 		var credentials RoomCredentials
 		if err := readSocketData(conn, &credentials); err != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Errorf("Error reading client credentials: %s", err.Error())})
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Error reading client credentials: %s", err.Error()))
 			return
 		}
 
 		gameID := ctx.Param("game_id")
-		room := r[gameID]
+
+		room, ok := r[gameID]
+
+		if !ok {
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Error trying to connect to non-existing game room %s", gameID))
+			return
+		}
+
+		if room.joined[credentials.PlayerID] {
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join the game %s again", credentials.PlayerID, gameID))
+			return
+		}
 
 		go room.play(ctx, conn, credentials.PlayerID)
 	}
@@ -168,11 +183,14 @@ func readSocketData(conn *websocket.Conn, dataModel interface{}) error {
 		return fmt.Errorf("Error reading message over socket: %s", err.Error())
 	}
 
-	log.Print("Parse")
 	if err := json.Unmarshal(body, dataModel); err != nil {
-		log.Print("Parse error")
-		return fmt.Errorf("Error unmarshaling move data: %s\n", err.Error())
+		return fmt.Errorf("Error unmarshaling move data: %s", err.Error())
 	}
 
 	return nil
+}
+
+func closeConnectionBeforeJoining(conn *websocket.Conn, err error) {
+	log.Println(err)
+	conn.Close()
 }
