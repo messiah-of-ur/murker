@@ -71,6 +71,7 @@ func (g *Game) Run() {
 
 		if newField == RosetteField {
 			rosette = true
+			g.moveDone <- struct{}{}
 			continue
 		}
 		g.removePawns(OpositePlayer(g.TurnPlr), newField)
