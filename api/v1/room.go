@@ -13,18 +13,19 @@ import (
 )
 
 const (
-	NUM_PLAYERS = 2
-	PLR_1       = 0
-	PLR_2       = 1
+	NumPlayers  = 2
+	Plr1        = 0
+	Plr2        = 1
+	SkipperPawn = -1
 )
 
 type Room struct {
 	key         string
 	mur         *mur.Game
-	controls    [NUM_PLAYERS]*mur.GameController
-	sendState   [NUM_PLAYERS]chan []byte
-	opponent    [NUM_PLAYERS]chan struct{}
-	joined      [NUM_PLAYERS]bool
+	controls    [NumPlayers]*mur.GameController
+	sendState   [NumPlayers]chan []byte
+	opponent    [NumPlayers]chan struct{}
+	joined      [NumPlayers]bool
 	interrupt   chan struct{}
 	interrupted bool
 	mu          sync.Mutex
@@ -34,14 +35,14 @@ type PlayerAction struct {
 	PawnID *int `json:"pawnID"`
 }
 
-func newRoom(key string, mur *mur.Game, controls [NUM_PLAYERS]*mur.GameController, interrupt chan struct{}) *Room {
+func newRoom(key string, mur *mur.Game, controls [NumPlayers]*mur.GameController, interrupt chan struct{}) *Room {
 	return &Room{
 		key:         key,
 		mur:         mur,
 		controls:    controls,
-		sendState:   [NUM_PLAYERS]chan []byte{make(chan []byte), make(chan []byte)},
-		opponent:    [NUM_PLAYERS]chan struct{}{make(chan struct{}), make(chan struct{})},
-		joined:      [NUM_PLAYERS]bool{false, false},
+		sendState:   [NumPlayers]chan []byte{make(chan []byte), make(chan []byte)},
+		opponent:    [NumPlayers]chan struct{}{make(chan struct{}), make(chan struct{})},
+		joined:      [NumPlayers]bool{false, false},
 		interrupt:   interrupt,
 		interrupted: false,
 	}
@@ -80,7 +81,9 @@ func (r *Room) play(ctx *gin.Context, conn *websocket.Conn, plrID int) {
 				return
 			}
 
-			r.controls[plrID].Move(*action.PawnID)
+			if *action.PawnID != SkipperPawn {
+				r.controls[plrID].Move(*action.PawnID)
+			}
 
 		case <-r.controls[plrID].End:
 			return
@@ -124,8 +127,8 @@ func (r *Room) sendGameState() error {
 		return fmt.Errorf("Error marshaling game state: %s", err.Error())
 	}
 
-	r.sendState[PLR_1] <- gameState
-	r.sendState[PLR_2] <- gameState
+	r.sendState[Plr1] <- gameState
+	r.sendState[Plr2] <- gameState
 
 	return nil
 }
