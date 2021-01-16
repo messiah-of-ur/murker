@@ -6,7 +6,7 @@ import (
 )
 
 func RegisterHandlers(router *gin.Engine, runner mur.GameRunner, registry RoomRegistry) {
-	router.GET("/state", stateHandler(runner))
-	router.POST("/game", gameGenerationHandler(runner, registry))
-	router.GET("/join/:game_id", registry.roomHandler())
+	router.GET("/v1/state", stateHandler(runner))
+	router.POST("/v1/game", gameGenerationHandler(runner, registry))
+	router.GET("/v1/join/:game_id", registry.roomHandler())
 }
