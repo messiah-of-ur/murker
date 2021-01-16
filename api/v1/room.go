@@ -81,9 +81,7 @@ func (r *Room) play(ctx *gin.Context, conn *websocket.Conn, plrID int) {
 				return
 			}
 
-			if *action.PawnID != SkipperPawn {
-				r.controls[plrID].Move(*action.PawnID)
-			}
+			r.controls[plrID].Move(*action.PawnID)
 
 		case <-r.controls[plrID].End:
 			return

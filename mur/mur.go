@@ -67,6 +67,11 @@ func (g *Game) Run() {
 			return
 		}
 
+		if pawnID == -1 {
+			g.switchTurn()
+			continue
+		}
+
 		newField := g.move(g.TurnPlr, pawnID)
 
 		if newField == RosetteField {
@@ -80,9 +85,7 @@ func (g *Game) Run() {
 			break
 		}
 
-		g.TurnPlr = OpositePlayer(g.TurnPlr)
-
-		g.moveDone <- struct{}{}
+		g.switchTurn()
 	}
 }
 
@@ -94,6 +97,11 @@ func (g *Game) RollDice() {
 	}
 
 	g.Roll = res
+}
+
+func (g *Game) switchTurn() {
+	g.TurnPlr = OpositePlayer(g.TurnPlr)
+	g.moveDone <- struct{}{}
 }
 
 func (g *Game) move(plrID int, pawnID int) int {
