@@ -10,8 +10,9 @@ const (
 	NumDice        = 4
 	MaxDiceScore   = 2
 	EscapedField   = 15
-	RosetteField   = 8
 )
+
+var RosetteField = [5]int{-4, 4, 8, -14, 14}
 
 type Game struct {
 	PlrPawns  [2][MaxPlayerPawns]int `json:"playerPawns"`
@@ -53,11 +54,8 @@ func (g *Game) Run() {
 
 	for {
 		fmt.Println(g.PlrPawns)
-		if !rosette {
-			g.RollDice()
-		} else {
-			rosette = false
-		}
+		g.RollDice()
+		rosette = false
 
 		g.turns[g.TurnPlr] <- struct{}{}
 
@@ -74,11 +72,18 @@ func (g *Game) Run() {
 
 		newField := g.move(g.TurnPlr, pawnID)
 
-		if newField == RosetteField {
-			rosette = true
-			g.moveDone <- struct{}{}
+		for _, v := range RosetteField {
+			if newField == v {
+				rosette = true
+				g.moveDone <- struct{}{}
+				break
+			}
+		}
+
+		if rosette {
 			continue
 		}
+
 		g.removePawns(OpositePlayer(g.TurnPlr), newField)
 
 		if g.isGameFinished(g.TurnPlr) {
