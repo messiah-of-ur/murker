@@ -6,13 +6,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/messiah-of-ur/murker/mur"
+	"github.com/messiah-of-ur/murker/murabi"
 )
 
 type PlayerAuth struct {
 	Key string `json:"key" binding:"required"`
 }
 
-func gameGenerationHandler(runner mur.GameRunner, roomRegistry RoomRegistry) func(*gin.Context) {
+func gameGenerationHandler(runner mur.GameRunner, roomRegistry RoomRegistry, murabiClient *murabi.MurabiClient) func(*gin.Context) {
 	return func(c *gin.Context) {
 		var auth PlayerAuth
 		if err := c.ShouldBindJSON(&auth); err != nil {
@@ -26,7 +27,7 @@ func gameGenerationHandler(runner mur.GameRunner, roomRegistry RoomRegistry) fun
 		}
 
 		game := runner[gameID]
-		roomRegistry.addRoom(auth.Key, game, controls, interrupt, gameID)
+		roomRegistry.addRoom(auth.Key, game, controls, interrupt, gameID, murabiClient)
 
 		c.JSON(http.StatusOK, gin.H{"gameID": gameID})
 	}

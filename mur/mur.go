@@ -6,6 +6,9 @@ import (
 )
 
 const (
+	NoWinner       = -1
+	Plr0           = 0
+	Plr1           = 1
 	MaxPlayerPawns = 8
 	NumDice        = 4
 	MaxDiceScore   = 2
@@ -47,6 +50,8 @@ func (g *Game) Run() {
 
 		close(g.turns[0])
 		close(g.turns[1])
+
+		close(g.moveDone)
 	}()
 
 	rosette := false
@@ -87,6 +92,7 @@ func (g *Game) Run() {
 		g.removePawns(OpositePlayer(g.TurnPlr), newField)
 
 		if g.isGameFinished(g.TurnPlr) {
+			g.moveDone <- struct{}{}
 			break
 		}
 
@@ -104,6 +110,18 @@ func (g *Game) RollDice() {
 	g.Roll = res
 }
 
+func (g *Game) Winner() int {
+	if g.isGameFinished(Plr0) {
+		return Plr0
+	}
+
+	if g.isGameFinished(Plr1) {
+		return Plr1
+	}
+
+	return NoWinner
+}
+
 func (g *Game) switchTurn() {
 	g.TurnPlr = OpositePlayer(g.TurnPlr)
 	g.moveDone <- struct{}{}
@@ -118,6 +136,35 @@ func (g *Game) move(plrID int, pawnID int) int {
 
 	g.PlrPawns[plrID][pawnID] = pos
 	return pos
+}
+
+func (g *Game) removePawns(plrID int, fieldId int) {
+	if fieldId >= EscapedField {
+		return
+	}
+
+	for i, v := range g.PlrPawns[plrID] {
+		if v == fieldId {
+			g.PlrPawns[plrID][i] = 0
+			break
+		}
+	}
+}
+
+func (g *Game) isGameFinished(plrID int) bool {
+	res := 0
+
+	for i := 0; i < MaxPlayerPawns; i++ {
+		if g.PlrPawns[plrID][i] >= EscapedField {
+			res++
+		}
+	}
+
+	return (res == MaxPlayerPawns)
+}
+
+func OpositePlayer(plrID int) int {
+	return 1 - plrID
 }
 
 func abs(input int) int {
@@ -137,31 +184,4 @@ func changeSideOfField(plrID int, fieldID int) int {
 	}
 
 	return fieldID
-}
-
-func (g *Game) removePawns(plrID int, fieldId int) {
-	if fieldId >= EscapedField {
-		return
-	}
-
-	for i, v := range g.PlrPawns[plrID] {
-		if v == fieldId {
-			g.PlrPawns[plrID][i] = 0
-			break
-		}
-	}
-}
-
-func OpositePlayer(plrID int) int { return 1 - plrID }
-
-func (g *Game) isGameFinished(plrID int) bool {
-	res := 0
-
-	for i := 0; i < MaxPlayerPawns; i++ {
-		if g.PlrPawns[plrID][i] >= EscapedField {
-			res++
-		}
-	}
-
-	return (res == MaxPlayerPawns)
 }

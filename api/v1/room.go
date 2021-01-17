@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/messiah-of-ur/murker/mur"
+	"github.com/messiah-of-ur/murker/murabi"
 )
 
 const (
@@ -113,7 +114,6 @@ func (r *Room) runMessageSender(ctx *gin.Context, conn *websocket.Conn, plrID in
 		case <-r.controls[plrID].End:
 			return
 		case <-r.interrupt:
-			log.Printf("Closed msg sender of plr%d", plrID)
 			return
 		}
 	}
@@ -132,7 +132,6 @@ func (r *Room) sendGameState() error {
 }
 
 func (r *Room) interruptWithError(ctx *gin.Context, err error) {
-	log.Printf("Closing int channel: %s\n", err.Error())
 	r.closeInterrupt()
 }
 
@@ -164,6 +163,7 @@ func (r RoomRegistry) addRoom(
 	controls [2]*mur.GameController,
 	interrupt chan struct{},
 	gameID string,
+	murabiClient *murabi.MurabiClient,
 ) {
 	room := newRoom(key, gameInstance, controls, interrupt)
 	r[gameID] = room
@@ -171,7 +171,23 @@ func (r RoomRegistry) addRoom(
 	go func() {
 		<-interrupt
 		delete(r, gameID)
+
+		winner := gameInstance.Winner()
+		log.Printf("Game %s won by %d", gameID, winner)
+
+		r.finishGame(murabiClient, gameID, winner)
 	}()
+}
+
+func (r RoomRegistry) finishGame(murabiClient *murabi.MurabiClient, gameID string, winner int) {
+	req := &murabi.FinishRequest{
+		GameID: gameID,
+		Winner: winner,
+	}
+
+	if err := murabiClient.FinishGame(req); err != nil {
+		log.Printf("The error is: %s", err.Error())
+	}
 }
 
 func (r RoomRegistry) roomHandler() func(ctx *gin.Context) {
@@ -200,12 +216,12 @@ func (r RoomRegistry) roomHandler() func(ctx *gin.Context) {
 		}
 
 		if room.joined[credentials.PlayerID] {
-			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join the game %s again", credentials.PlayerID, gameID))
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join game %s again", credentials.PlayerID, gameID))
 			return
 		}
 
 		if !room.isKeyAuthentic(credentials.Key) {
-			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join the game %s with invalid key", credentials.PlayerID, gameID))
+			closeConnectionBeforeJoining(conn, fmt.Errorf("Player %d tried to join game %s with invalid key", credentials.PlayerID, gameID))
 			return
 		}
 
